@@ -7,11 +7,11 @@ use anyhow::Error;
 use camera::OrbitCamera;
 use clap::Parser;
 use glam::{vec2, vec4, DVec3, Mat4, Quat, Vec2, Vec3};
-use kicad_parser::board::BoardLayer;
 use opencascade::{
     kicad::KicadPcb,
     primitives::{IntoShape, Shape},
 };
+use opencascade_kicad_parser::board::BoardLayer;
 use simple_game::{
     graphics::{
         text::{AxisAlign, StyledText, TextAlignment, TextSystem},

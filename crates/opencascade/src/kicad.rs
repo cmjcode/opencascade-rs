@@ -5,7 +5,7 @@ use crate::{
     Error,
 };
 use glam::DVec2;
-use kicad_parser::{
+use opencascade_kicad_parser::{
     board::{BoardLayer, KicadBoard},
     graphics::{GraphicArc, GraphicCircle, GraphicLine, GraphicRect},
 };
