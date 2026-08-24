@@ -11,7 +11,7 @@ repository = "https://github.com/bschwind/opencascade-rs"
 cxx = "1"
 opencascade-sys = { version = "0.3", path = "../opencascade-sys" }
 glam = { version = "0.24", features = ["bytemuck"] }
-kicad-parser = { path = "../kicad-parser" }
+kicad-parser = { version = "0.1", path = "../kicad-parser" }
 thiserror = "1"
 
 [features]
