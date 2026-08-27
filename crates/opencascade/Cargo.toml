@@ -10,9 +10,9 @@ repository = "https://github.com/bschwind/opencascade-rs"
 [dependencies]
 cxx = "1"
 opencascade-sys = { version = "0.3", path = "../opencascade-sys" }
-glam = { version = "0.24", features = ["bytemuck"] }
+glam = { version = "0.33", features = ["bytemuck"] }
 opencascade-kicad-parser = { version = "0.3", path = "../kicad-parser" }
-thiserror = "1"
+thiserror = "2"
 
 [features]
 default = ["builtin"]

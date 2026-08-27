@@ -7,6 +7,8 @@ mod inner {
 
         type gp_Pnt = crate::gp::gp_Pnt;
         type gp_Circ = crate::gp::gp_Circ;
+        type gp_Elips = crate::gp::gp_Elips;
+        type gp_Pln = crate::gp::gp_Pln;
         type gp_Trsf = crate::gp::gp_Trsf;
         type gp_GTrsf = crate::gp::gp_GTrsf;
         type Message_ProgressRange = crate::message::Message_ProgressRange;
@@ -36,6 +38,9 @@ mod inner {
         #[cxx_name = "construct_unique"]
         pub fn BRepBuilderAPI_MakeEdge_circle(
             circle: &gp_Circ,
+        ) -> UniquePtr<BRepBuilderAPI_MakeEdge>;
+        pub fn BRepBuilderAPI_MakeEdge_elips(
+            elips: &gp_Elips,
         ) -> UniquePtr<BRepBuilderAPI_MakeEdge>;
         #[cxx_name = "construct_unique"]
         pub fn BRepBuilderAPI_MakeEdge_gp_Pnt_gp_Pnt(
@@ -85,6 +90,13 @@ mod inner {
         pub fn BRepBuilderAPI_MakeFace_surface(
             surface: &Handle_Geom_Surface,
             edge_tolerance: f64,
+        ) -> UniquePtr<BRepBuilderAPI_MakeFace>;
+        pub fn BRepBuilderAPI_MakeFace_pln(
+            pln: &gp_Pln,
+            umin: f64,
+            umax: f64,
+            vmin: f64,
+            vmax: f64,
         ) -> UniquePtr<BRepBuilderAPI_MakeFace>;
         pub fn Face(self: &BRepBuilderAPI_MakeFace) -> &TopoDS_Face;
         pub fn Shape(self: Pin<&mut BRepBuilderAPI_MakeFace>) -> &TopoDS_Shape;

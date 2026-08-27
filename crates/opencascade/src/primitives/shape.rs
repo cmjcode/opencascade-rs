@@ -447,9 +447,15 @@ impl Shape {
         self.inner.ShapeType().into()
     }
 
-    #[must_use]
-    pub fn fillet_edge(&self, radius: f64, edge: &Edge) -> Self {
-        self.fillet_edges(radius, [edge])
+    pub fn fillet_edge(&mut self, radius: f64, edge: &Edge) -> Result<(), crate::Error> {
+        let mut make_fillet = ffi::b_rep_fillet_api::BRepFilletAPI_MakeFillet_new(&self.inner);
+        make_fillet.pin_mut().add_edge(radius, &edge.inner);
+
+        let filleted_shape = ffi::b_rep_fillet_api::BRepFilletAPI_MakeFillet_shape_checked(make_fillet.pin_mut())
+            .map_err(|e| crate::Error::FilletFailed(e.to_string()))?;
+
+        self.inner = ffi::topo_ds::TopoDS_Shape_to_owned(filleted_shape);
+        Ok(())
     }
 
     #[must_use]
@@ -461,24 +467,58 @@ impl Shape {
         self.variable_fillet_edges(radius_values, [edge])
     }
 
-    #[must_use]
-    pub fn chamfer_edge(&self, distance: f64, edge: &Edge) -> Self {
-        self.chamfer_edges(distance, [edge])
+    pub fn chamfer_edge(&mut self, distance: f64, edge: &Edge) -> Result<(), crate::Error> {
+        let mut make_chamfer = ffi::b_rep_fillet_api::BRepFilletAPI_MakeChamfer_new(&self.inner);
+        make_chamfer.pin_mut().add_edge(distance, &edge.inner);
+
+        let chamfered_shape = ffi::b_rep_fillet_api::BRepFilletAPI_MakeChamfer_shape_checked(make_chamfer.pin_mut())
+            .map_err(|e| crate::Error::FilletFailed(e.to_string()))?;
+
+        self.inner = ffi::topo_ds::TopoDS_Shape_to_owned(chamfered_shape);
+        Ok(())
     }
 
-    #[must_use]
     pub fn fillet_edges<T: AsRef<Edge>>(
-        &self,
+        &mut self,
         radius: f64,
         edges: impl IntoIterator<Item = T>,
-    ) -> Self {
+    ) -> Result<(), crate::Error> {
         let mut make_fillet = ffi::b_rep_fillet_api::BRepFilletAPI_MakeFillet_new(&self.inner);
 
         for edge in edges.into_iter() {
             make_fillet.pin_mut().add_edge(radius, &edge.as_ref().inner);
         }
 
-        Self::from_shape(make_fillet.pin_mut().Shape())
+        let filleted_shape = ffi::b_rep_fillet_api::BRepFilletAPI_MakeFillet_shape_checked(make_fillet.pin_mut())
+            .map_err(|e| crate::Error::FilletFailed(e.to_string()))?;
+
+        self.inner = ffi::topo_ds::TopoDS_Shape_to_owned(filleted_shape);
+        Ok(())
+    }
+
+    pub fn fillet_edges_variable<T: AsRef<Edge>>(
+        &mut self,
+        radius_start: f64,
+        radius_end: f64,
+        edges: impl IntoIterator<Item = T>,
+    ) -> Result<(), crate::Error> {
+        let mut array = ffi::t_col_gp::TColgp_Array1OfPnt2d_new(1, 2);
+        array.pin_mut().SetValue(1, &make_point2d(dvec2(0.0, radius_start)));
+        array.pin_mut().SetValue(2, &make_point2d(dvec2(1.0, radius_end)));
+
+        let mut make_fillet = ffi::b_rep_fillet_api::BRepFilletAPI_MakeFillet_new(&self.inner);
+
+        for edge in edges.into_iter() {
+            make_fillet
+                .pin_mut()
+                .variable_add_edge(&array, &edge.as_ref().inner);
+        }
+
+        let filleted_shape = ffi::b_rep_fillet_api::BRepFilletAPI_MakeFillet_shape_checked(make_fillet.pin_mut())
+            .map_err(|e| crate::Error::FilletFailed(e.to_string()))?;
+
+        self.inner = ffi::topo_ds::TopoDS_Shape_to_owned(filleted_shape);
+        Ok(())
     }
 
     #[must_use]
@@ -503,36 +543,38 @@ impl Shape {
         Self::from_shape(make_fillet.pin_mut().Shape())
     }
 
-    #[must_use]
     pub fn chamfer_edges<T: AsRef<Edge>>(
-        &self,
+        &mut self,
         distance: f64,
         edges: impl IntoIterator<Item = T>,
-    ) -> Self {
+    ) -> Result<(), crate::Error> {
         let mut make_chamfer = ffi::b_rep_fillet_api::BRepFilletAPI_MakeChamfer_new(&self.inner);
 
         for edge in edges.into_iter() {
             make_chamfer.pin_mut().add_edge(distance, &edge.as_ref().inner);
         }
 
-        Self::from_shape(make_chamfer.pin_mut().Shape())
+        let chamfered_shape = ffi::b_rep_fillet_api::BRepFilletAPI_MakeChamfer_shape_checked(make_chamfer.pin_mut())
+            .map_err(|e| crate::Error::FilletFailed(e.to_string()))?;
+
+        self.inner = ffi::topo_ds::TopoDS_Shape_to_owned(chamfered_shape);
+        Ok(())
     }
 
     /// Performs fillet of `radius` on all edges of the shape
-    #[must_use]
-    pub fn fillet(&self, radius: f64) -> Self {
+    pub fn fillet(&mut self, radius: f64) -> Result<(), crate::Error> {
         self.fillet_edges(radius, self.edges())
     }
 
     /// Performs chamfer of `distance` on all edges of the shape
-    #[must_use]
-    pub fn chamfer(&self, distance: f64) -> Self {
+    pub fn chamfer(&mut self, distance: f64) -> Result<(), crate::Error> {
         self.chamfer_edges(distance, self.edges())
     }
 
-    #[must_use]
-    pub fn subtract(&self, other: &Shape) -> BooleanShape {
-        let mut cut_operation = ffi::b_rep_algo_api::BRepAlgoAPI_Cut_new(&self.inner, &other.inner);
+    pub fn subtract(&self, other: &Shape) -> Result<BooleanShape, crate::Error> {
+        let mut cut_operation =
+            ffi::b_rep_algo_api::BRepAlgoAPI_Cut_ctor_checked(&self.inner, &other.inner)
+                .map_err(|e| crate::Error::BooleanOpFailed(e.to_string()))?;
 
         let edge_list = cut_operation.pin_mut().SectionEdges();
         let vec = ffi::topo_ds::shape_list_to_vector(edge_list);
@@ -543,9 +585,11 @@ impl Shape {
             new_edges.push(Edge::from_edge(edge));
         }
 
-        let shape = Self::from_shape(cut_operation.pin_mut().Shape());
+        let cut_shape = ffi::b_rep_algo_api::BRepAlgoAPI_Cut_shape_checked(cut_operation.pin_mut())
+            .map_err(|e| crate::Error::BooleanOpFailed(e.to_string()))?;
+        let shape = Self::from_shape(cut_shape);
 
-        BooleanShape { shape, new_edges }
+        Ok(BooleanShape { shape, new_edges })
     }
 
     pub fn read_step(path: impl AsRef<Path>) -> Result<Self, Error> {
@@ -688,10 +732,10 @@ impl Shape {
         }
     }
 
-    #[must_use]
-    pub fn union(&self, other: &Shape) -> BooleanShape {
+    pub fn union(&self, other: &Shape) -> Result<BooleanShape, crate::Error> {
         let mut fuse_operation =
-            ffi::b_rep_algo_api::BRepAlgoAPI_Fuse_new(&self.inner, &other.inner);
+            ffi::b_rep_algo_api::BRepAlgoAPI_Fuse_ctor_checked(&self.inner, &other.inner)
+                .map_err(|e| crate::Error::BooleanOpFailed(e.to_string()))?;
         let edge_list = fuse_operation.pin_mut().SectionEdges();
         let vec = ffi::topo_ds::shape_list_to_vector(edge_list);
 
@@ -701,16 +745,18 @@ impl Shape {
             new_edges.push(Edge::from_edge(edge));
         }
 
-        let shape = Self::from_shape(fuse_operation.pin_mut().Shape());
+        let fuse_shape = ffi::b_rep_algo_api::BRepAlgoAPI_Fuse_shape_checked(fuse_operation.pin_mut())
+            .map_err(|e| crate::Error::BooleanOpFailed(e.to_string()))?;
+        let shape = Self::from_shape(fuse_shape);
 
-        BooleanShape { shape, new_edges }
+        Ok(BooleanShape { shape, new_edges })
     }
 
-    #[must_use]
-    pub fn intersect(&self, other: &Shape) -> BooleanShape {
-        let mut fuse_operation =
-            ffi::b_rep_algo_api::BRepAlgoAPI_Common_new(&self.inner, &other.inner);
-        let edge_list = fuse_operation.pin_mut().SectionEdges();
+    pub fn intersect(&self, other: &Shape) -> Result<BooleanShape, crate::Error> {
+        let mut common_operation =
+            ffi::b_rep_algo_api::BRepAlgoAPI_Common_ctor_checked(&self.inner, &other.inner)
+                .map_err(|e| crate::Error::BooleanOpFailed(e.to_string()))?;
+        let edge_list = common_operation.pin_mut().SectionEdges();
         let vec = ffi::topo_ds::shape_list_to_vector(edge_list);
 
         let mut new_edges = vec![];
@@ -719,9 +765,11 @@ impl Shape {
             new_edges.push(Edge::from_edge(edge));
         }
 
-        let shape = Self::from_shape(fuse_operation.pin_mut().Shape());
+        let common_shape = ffi::b_rep_algo_api::BRepAlgoAPI_Common_shape_checked(common_operation.pin_mut())
+            .map_err(|e| crate::Error::BooleanOpFailed(e.to_string()))?;
+        let shape = Self::from_shape(common_shape);
 
-        BooleanShape { shape, new_edges }
+        Ok(BooleanShape { shape, new_edges })
     }
 
     pub fn write_stl<P: AsRef<Path>>(&self, path: P) -> Result<(), Error> {
@@ -767,6 +815,45 @@ impl Shape {
         self.inner.pin_mut().set_global_translation(&location, false);
     }
 
+    pub fn scale(&mut self, pivot: DVec3, factor: f64) {
+        let point = make_point(pivot);
+        let mut transform = ffi::gp::new_transform();
+        transform.pin_mut().SetScale(&point, factor);
+
+        let mut transform_builder =
+            ffi::b_rep_builder_api::BRepBuilderAPI_Transform_new(&self.inner, &transform, true);
+        transform_builder.pin_mut().Build(&ffi::message::Message_ProgressRange_new());
+        let transformed_shape = transform_builder.pin_mut().Shape();
+        self.inner = ffi::topo_ds::TopoDS_Shape_to_owned(transformed_shape);
+    }
+
+    pub fn rotate(&mut self, pivot: DVec3, axis: DVec3, angle_rad: f64) {
+        let axis_1 = make_axis_1(pivot, axis);
+        let mut transform = ffi::gp::new_transform();
+        transform.pin_mut().SetRotation(&axis_1, angle_rad);
+
+        let mut transform_builder =
+            ffi::b_rep_builder_api::BRepBuilderAPI_Transform_new(&self.inner, &transform, true);
+        transform_builder.pin_mut().Build(&ffi::message::Message_ProgressRange_new());
+        let transformed_shape = transform_builder.pin_mut().Shape();
+        self.inner = ffi::topo_ds::TopoDS_Shape_to_owned(transformed_shape);
+    }
+
+    pub fn volume(&self) -> f64 {
+        let mut props = ffi::g_prop::GProps_new();
+        let only_closed = false;
+        let skip_shared = false;
+        let use_triangulation = false;
+        ffi::b_rep_g_prop::BRepGProp::VolumeProperties(
+            &self.inner,
+            props.pin_mut(),
+            only_closed,
+            skip_shared,
+            use_triangulation,
+        );
+        props.Mass()
+    }
+
     pub fn mesh(&self) -> Result<Mesh, Error> {
         self.mesh_with_tolerance(0.01)
     }
@@ -792,10 +879,49 @@ impl Shape {
         FaceIterator { explorer }
     }
 
-    // TODO(bschwind) - Convert the return type to an iterator.
-    pub fn faces_along_line(&self, line_origin: DVec3, line_dir: DVec3) -> Vec<LineFaceHitPoint> {
+    pub fn faces_along_ray(&self, ray_start: DVec3, ray_dir: DVec3) -> Vec<(Face, DVec3)> {
+        self.faces_along_ray_with_tolerance(ray_start, ray_dir, 0.0001)
+    }
+
+    pub fn faces_along_ray_with_tolerance(
+        &self,
+        ray_start: DVec3,
+        ray_dir: DVec3,
+        tolerance: f64,
+    ) -> Vec<(Face, DVec3)> {
         let mut intersector = ffi::b_rep_int_curve_surface::BRepIntCurveSurface_Inter_new();
-        let tolerance = 0.0001;
+        intersector.pin_mut().Init(
+            &self.inner,
+            &ffi::gp::gp_Lin_new(&make_point(ray_start), &make_dir(ray_dir)),
+            tolerance,
+        );
+
+        let mut results = vec![];
+
+        while intersector.More() {
+            let face = ffi::b_rep_int_curve_surface::BRepIntCurveSurface_Inter_face(&intersector);
+            let face = Face::from_face(&face);
+            let point = ffi::b_rep_int_curve_surface::BRepIntCurveSurface_Inter_point(&intersector);
+
+            results.push((face, dvec3(point.X(), point.Y(), point.Z())));
+
+            intersector.pin_mut().Next();
+        }
+
+        results
+    }
+
+    pub fn faces_along_line(&self, line_origin: DVec3, line_dir: DVec3) -> Vec<LineFaceHitPoint> {
+        self.faces_along_line_with_tolerance(line_origin, line_dir, 0.0001)
+    }
+
+    pub fn faces_along_line_with_tolerance(
+        &self,
+        line_origin: DVec3,
+        line_dir: DVec3,
+        tolerance: f64,
+    ) -> Vec<LineFaceHitPoint> {
+        let mut intersector = ffi::b_rep_int_curve_surface::BRepIntCurveSurface_Inter_new();
         intersector.pin_mut().Init(
             &self.inner,
             &ffi::gp::gp_Lin_new(&make_point(line_origin), &make_dir(line_dir)),
@@ -868,12 +994,11 @@ impl Shape {
         })
     }
 
-    #[must_use]
-    pub fn hollow<T: AsRef<Face>>(
+    pub fn try_hollow<T: AsRef<Face>>(
         &self,
         offset: f64,
         faces_to_remove: impl IntoIterator<Item = T>,
-    ) -> Self {
+    ) -> Result<Self, Error> {
         let mut faces_list = ffi::top_tools::new_list_of_shape();
 
         for face in faces_to_remove.into_iter() {
@@ -901,14 +1026,267 @@ impl Shape {
             remove_intersecting_edges,
             &ffi::message::Message_ProgressRange_new(),
         );
+        solid_maker.pin_mut().Build(&ffi::message::Message_ProgressRange_new());
 
-        Self::from_shape(solid_maker.pin_mut().Shape())
+        let hollowed_shape =
+            ffi::b_rep_offset_api::BRepOffsetAPI_MakeThickSolid_shape_checked(solid_maker.pin_mut())
+                .map_err(|e| Error::HollowFailed(e.to_string()))?;
+        let res = Self::from_shape(hollowed_shape);
+        if res.faces().count() == 0 {
+            return Err(Error::HollowFailed("Operasi hollow menghasilkan bentuk kosong (tidak ada face tersisa)".to_string()));
+        }
+        Ok(res)
+    }
+
+    pub fn try_hollow_variable<T: AsRef<Face>, U: AsRef<Face>>(
+        &self,
+        default_offset: f64,
+        faces_to_remove: impl IntoIterator<Item = T>,
+        variable_faces: impl IntoIterator<Item = (U, f64)>,
+    ) -> Result<Self, Error> {
+        const OFFSET_TOLERANCE: f64 = 1e-3;
+        let to_error = |e: cxx::Exception| Error::HollowFailed(e.what().to_string());
+
+        let mut make_offset = ffi::b_rep_offset_api::BRepOffset_MakeOffset_ctor();
+        ffi::b_rep_offset_api::BRepOffset_MakeOffset_Initialize(
+            make_offset.pin_mut(),
+            &self.inner,
+            default_offset,
+            OFFSET_TOLERANCE,
+            ffi::b_rep_offset_api::BRepOffset_Mode::BRepOffset_Skin,
+            true,
+            false,
+            ffi::geom_abs::GeomAbs_JoinType::GeomAbs_Arc,
+            true,
+            false,
+        )
+        .map_err(to_error)?;
+
+        for face in faces_to_remove {
+            ffi::b_rep_offset_api::BRepOffset_MakeOffset_AddFace(
+                make_offset.pin_mut(),
+                &face.as_ref().inner,
+            )
+            .map_err(to_error)?;
+        }
+
+        for (face, offset) in variable_faces {
+            ffi::b_rep_offset_api::BRepOffset_MakeOffset_SetOffsetOnFace(
+                make_offset.pin_mut(),
+                &face.as_ref().inner,
+                offset,
+            )
+            .map_err(to_error)?;
+        }
+
+        ffi::b_rep_offset_api::BRepOffset_MakeOffset_MakeOffsetShape(make_offset.pin_mut())
+            .map_err(to_error)?;
+
+        let result_shape =
+            ffi::b_rep_offset_api::BRepOffset_MakeOffset_Shape(&make_offset).map_err(to_error)?;
+        Ok(Self::from_shape(result_shape))
+    }
+
+    #[must_use]
+    pub fn hollow<T: AsRef<Face>>(
+        &self,
+        offset: f64,
+        faces_to_remove: impl IntoIterator<Item = T>,
+    ) -> Self {
+        self.try_hollow(offset, faces_to_remove)
+            .unwrap_or_else(|e| panic!("Failed to hollow shape: {e}"))
     }
 
     #[must_use]
     pub fn offset_surface(&self, offset: f64) -> Self {
         let faces_to_remove: [Face; 0] = [];
         self.hollow(offset, faces_to_remove)
+    }
+
+    pub fn offset_on_face(&self, face: &Face, offset: f64) -> Result<Self, crate::Error> {
+        const OFFSET_TOLERANCE: f64 = 1e-4;
+
+        let to_error = |e: cxx::Exception| crate::Error::OffsetOnFaceFailed(e.what().to_string());
+
+        let mut make_offset = ffi::b_rep_offset_api::BRepOffset_MakeOffset_ctor();
+        ffi::b_rep_offset_api::BRepOffset_MakeOffset_Initialize(
+            make_offset.pin_mut(),
+            &self.inner,
+            0.0,
+            OFFSET_TOLERANCE,
+            ffi::b_rep_offset_api::BRepOffset_Mode::BRepOffset_Skin,
+            true,
+            false,
+            ffi::geom_abs::GeomAbs_JoinType::GeomAbs_Intersection,
+            false,
+            false,
+        )
+        .map_err(to_error)?;
+
+        ffi::b_rep_offset_api::BRepOffset_MakeOffset_SetOffsetOnFace(
+            make_offset.pin_mut(),
+            &face.inner,
+            offset,
+        )
+        .map_err(to_error)?;
+
+        ffi::b_rep_offset_api::BRepOffset_MakeOffset_MakeOffsetShape(make_offset.pin_mut())
+            .map_err(to_error)?;
+
+        let result_shape =
+            ffi::b_rep_offset_api::BRepOffset_MakeOffset_Shape(&make_offset).map_err(to_error)?;
+        Ok(Self::from_shape(result_shape))
+    }
+
+    pub fn pipe(spine: &Wire, profile: &Shape) -> Result<Self, crate::Error> {
+        let mut make_pipe =
+            ffi::b_rep_offset_api::BRepOffsetAPI_MakePipe_ctor_checked(&spine.inner, &profile.inner)
+                .map_err(|e| crate::Error::PipeFailed(e.what().to_string()))?;
+
+        let result_shape =
+            ffi::b_rep_offset_api::BRepOffsetAPI_MakePipe_shape_checked(make_pipe.pin_mut())
+                .map_err(|e| crate::Error::PipeFailed(e.what().to_string()))?;
+
+        Ok(Self::from_shape(result_shape))
+    }
+
+    pub fn draft_angle(
+        &self,
+        neutral_plane_point: DVec3,
+        neutral_plane_normal: DVec3,
+        pull_direction: DVec3,
+        angle_deg: f64,
+        faces: &[&Face],
+    ) -> Result<Self, crate::Error> {
+        let to_error = |e: cxx::Exception| crate::Error::DraftAngleFailed(e.what().to_string());
+
+        let angle_rad = angle_deg.to_radians();
+
+        let pull_dir = make_dir(pull_direction);
+        let np_point = make_point(neutral_plane_point);
+        let np_normal = make_dir(neutral_plane_normal);
+        let neutral_plane = ffi::gp::gp_Pln_ctor_point_and_dir(&np_point, &np_normal);
+
+        let mut draft =
+            ffi::b_rep_offset_api::BRepOffsetAPI_DraftAngle_ctor(&self.inner).map_err(to_error)?;
+
+        for face in faces {
+            ffi::b_rep_offset_api::BRepOffsetAPI_DraftAngle_Add(
+                draft.pin_mut(),
+                &face.inner,
+                &pull_dir,
+                angle_rad,
+                &neutral_plane,
+            )
+            .map_err(to_error)?;
+        }
+
+        ffi::b_rep_offset_api::BRepOffsetAPI_DraftAngle_Build(draft.pin_mut()).map_err(to_error)?;
+
+        if !ffi::b_rep_offset_api::BRepOffsetAPI_DraftAngle_IsDone(&draft) {
+            return Err(crate::Error::DraftAngleFailed(
+                "Build() selesai tanpa error tapi IsDone() == false (sudut atau face tidak kompatibel)"
+                    .to_string(),
+            ));
+        }
+
+        let result_shape =
+            ffi::b_rep_offset_api::BRepOffsetAPI_DraftAngle_shape_checked(draft.pin_mut())
+                .map_err(to_error)?;
+        Ok(Self::from_shape(result_shape))
+    }
+
+    pub fn split_with_plane(
+        &self,
+        plane_point: DVec3,
+        plane_normal: DVec3,
+    ) -> Result<Vec<Self>, crate::Error> {
+        let to_error = |e: cxx::Exception| crate::Error::SplitFailed(e.what().to_string());
+
+        let res_vec = ffi::b_rep_algo_api::split_shape_with_plane(
+            &self.inner,
+            plane_point.x,
+            plane_point.y,
+            plane_point.z,
+            plane_normal.x,
+            plane_normal.y,
+            plane_normal.z,
+        )
+        .map_err(to_error)?;
+
+        let mut shapes = Vec::new();
+        if let Some(vec) = res_vec.as_ref() {
+            for shape_ref in vec.iter() {
+                shapes.push(Self::from_shape(shape_ref));
+            }
+        }
+
+        Ok(shapes)
+    }
+
+    pub fn split_with_tool(&self, tool: &Shape) -> Result<Vec<Self>, crate::Error> {
+        let to_error = |e: cxx::Exception| crate::Error::SplitFailed(e.what().to_string());
+
+        let res_vec = ffi::b_rep_algo_api::split_shape_with_tool(&self.inner, &tool.inner)
+            .map_err(to_error)?;
+
+        let mut shapes = Vec::new();
+        if let Some(vec) = res_vec.as_ref() {
+            for shape_ref in vec.iter() {
+                shapes.push(Self::from_shape(shape_ref));
+            }
+        }
+
+        Ok(shapes)
+    }
+
+    pub fn split_faces_with_plane(
+        &self,
+        plane_point: DVec3,
+        plane_normal: DVec3,
+    ) -> Result<Self, crate::Error> {
+        let to_error = |e: cxx::Exception| crate::Error::SplitFailed(e.what().to_string());
+
+        let res_shape = ffi::b_rep_algo_api::split_faces_with_plane(
+            &self.inner,
+            plane_point.x,
+            plane_point.y,
+            plane_point.z,
+            plane_normal.x,
+            plane_normal.y,
+            plane_normal.z,
+        )
+        .map_err(to_error)?;
+
+        Ok(Self::from_shape(&res_shape))
+    }
+
+    pub fn section_with_plane(
+        &self,
+        plane_point: DVec3,
+        plane_normal: DVec3,
+    ) -> Result<Vec<Self>, crate::Error> {
+        let to_error = |e: cxx::Exception| crate::Error::SplitFailed(e.what().to_string());
+
+        let res_vec = ffi::b_rep_algo_api::section_shape_with_plane(
+            &self.inner,
+            plane_point.x,
+            plane_point.y,
+            plane_point.z,
+            plane_normal.x,
+            plane_normal.y,
+            plane_normal.z,
+        )
+        .map_err(to_error)?;
+
+        let mut shapes = Vec::new();
+        if let Some(vec) = res_vec.as_ref() {
+            for shape_ref in vec.iter() {
+                shapes.push(Self::from_shape(shape_ref));
+            }
+        }
+
+        Ok(shapes)
     }
 
     /// Drill a cylindrical hole along the line defined by point `p`
