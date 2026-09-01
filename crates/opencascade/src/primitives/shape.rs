@@ -15,6 +15,14 @@ pub struct Shape {
     pub(crate) inner: UniquePtr<ffi::topo_ds::TopoDS_Shape>,
 }
 
+impl Clone for Shape {
+    fn clone(&self) -> Self {
+        Self::from_shape(&self.inner)
+    }
+}
+
+unsafe impl Send for Shape {}
+
 impl AsRef<Shape> for Shape {
     fn as_ref(&self) -> &Shape {
         self
@@ -796,6 +804,20 @@ impl Shape {
         }
     }
 
+    pub fn read_stl<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
+        let mut shape = ffi::topo_ds::TopoDS_Compound_as_shape(ffi::topo_ds::TopoDS_Compound_new());
+        let success = ffi::stl_api::read_stl(
+            shape.pin_mut(),
+            path.as_ref().to_string_lossy().to_string(),
+        );
+
+        if success {
+            Ok(Self { inner: shape })
+        } else {
+            Err(Error::StlReadFailed)
+        }
+    }
+
     #[must_use]
     pub fn clean(&self) -> Self {
         let mut upgrader = ffi::shape_upgrade::UnifySameDomain_new(&self.inner, true, true, true);
@@ -855,7 +877,14 @@ impl Shape {
     }
 
     pub fn mesh(&self) -> Result<Mesh, Error> {
-        self.mesh_with_tolerance(0.01)
+        let bb = crate::bounding_box::aabb(self);
+        let diag = if bb.is_void() {
+            50.0
+        } else {
+            (bb.max() - bb.min()).length().max(1.0)
+        };
+        let tol = (diag * 0.001).clamp(0.05, 0.5);
+        self.mesh_with_tolerance(tol)
     }
 
     pub fn mesh_with_tolerance(&self, triangulation_tolerance: f64) -> Result<Mesh, Error> {

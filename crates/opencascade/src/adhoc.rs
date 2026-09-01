@@ -67,7 +67,8 @@ impl AdHocShape {
     pub fn make_sphere(r: f64) -> Self {
         let point = ffi::gp::new_point(0.0, 0.0, 0.0);
         let axis = ffi::gp::gp_Ax2_new(&point, ffi::gp::gp::DZ());
-        let mut sphere = ffi::b_rep_prim_api::BRepPrimAPI_MakeSphere_new(&axis, r, 360.0);
+        let mut sphere =
+            ffi::b_rep_prim_api::BRepPrimAPI_MakeSphere_new(&axis, r, std::f64::consts::TAU);
         let inner = ffi::topo_ds::TopoDS_Shape_to_owned(sphere.pin_mut().Shape());
 
         Self::from_inner(inner)

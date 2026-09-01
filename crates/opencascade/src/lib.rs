@@ -16,6 +16,8 @@ mod make_pipe_shell;
 pub enum Error {
     #[error("failed to write STL file")]
     StlWriteFailed,
+    #[error("failed to read STL file")]
+    StlReadFailed,
     #[error("failed to read STEP file")]
     StepReadFailed,
     #[error("failed to read IGES file")]
