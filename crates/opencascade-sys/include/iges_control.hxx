@@ -1,9 +1,11 @@
 #include <IGESControl_Reader.hxx>
 #include <IGESControl_Writer.hxx>
+#include <Interface_Static.hxx>
 #include <TopoDS_Shape.hxx>
 #include <bindings_common.hxx>
 
 inline IFSelect_ReturnStatus read_iges(IGESControl_Reader &reader, rust::String theFileName) {
+  CoutSilencer silencer;
   return reader.ReadFile(theFileName.c_str());
 }
 
@@ -12,5 +14,8 @@ inline std::unique_ptr<TopoDS_Shape> one_shape_iges(const IGESControl_Reader &re
 }
 
 inline bool write_iges(IGESControl_Writer &writer, rust::String theFileName) {
+  CoutSilencer silencer;
   return writer.Write(theFileName.c_str());
 }
+
+

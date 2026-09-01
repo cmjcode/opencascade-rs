@@ -114,8 +114,7 @@ fn main() {
         .include("include")
         .compile("rust-occt");
 
-    println!("cargo:rustc-link-lib=static=rust-occt");
-
+    println!("cargo:rerun-if-changed=include");
     for bridge in rust_bridges {
         println!("cargo:rerun-if-changed={bridge}");
     }
