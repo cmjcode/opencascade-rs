@@ -123,20 +123,101 @@ impl Face {
         Shape::from_shape(make_prism.pin_mut().Shape())
     }
 
-    #[must_use]
-    pub fn revolve(&self, origin: DVec3, axis: DVec3, angle: Option<Angle>) -> Solid {
+    pub fn try_revolve(
+        &self,
+        origin: DVec3,
+        axis: DVec3,
+        angle: Option<Angle>,
+    ) -> Result<Solid, crate::Error> {
         let revol_vec = make_axis_1(origin, axis);
 
         let angle = angle.map(Angle::radians).unwrap_or(std::f64::consts::PI * 2.0);
         let copy = false;
 
         let inner_shape = ffi::topo_ds::cast_face_to_shape(&self.inner);
-        let mut make_solid =
-            ffi::b_rep_prim_api::BRepPrimAPI_MakeRevol_new(inner_shape, &revol_vec, angle, copy);
-        let revolved_shape = make_solid.pin_mut().Shape();
+        let mut make_solid = ffi::b_rep_prim_api::BRepPrimAPI_MakeRevol_ctor_checked(
+            inner_shape,
+            &revol_vec,
+            angle,
+            copy,
+        )
+        .map_err(|e| crate::Error::RevolveFailed(e.to_string()))?;
+        let revolved_shape =
+            ffi::b_rep_prim_api::BRepPrimAPI_MakeRevol_shape_checked(make_solid.pin_mut())
+                .map_err(|e| crate::Error::RevolveFailed(e.to_string()))?;
         let solid = ffi::topo_ds::TopoDS::Solid(revolved_shape);
 
-        Solid::from_solid(solid)
+        Ok(Solid::from_solid(solid))
+    }
+
+    #[must_use]
+    pub fn revolve(&self, origin: DVec3, axis: DVec3, angle: Option<Angle>) -> Solid {
+        self.try_revolve(origin, axis, angle)
+            .expect("Face::revolve failed (use try_revolve for safe error handling)")
+    }
+
+    /// Menghasilkan bentuk 3D solid baru dengan menyapu (sweep / pipe) wajah (face) ini di sepanjang kurva jalur (spine wire).
+    pub fn pipe(&self, spine: &Wire) -> Result<Shape, crate::Error> {
+        let profile_shape = Shape::from_shape(ffi::topo_ds::cast_face_to_shape(&self.inner));
+        Shape::pipe(spine, &profile_shape)
+    }
+
+    pub fn surface_kind(&self) -> String {
+        let surface = ffi::b_rep::BRep_Tool_Surface(&self.inner);
+        let dynamic_type = ffi::geom::DynamicType(&surface);
+
+        ffi::standard::type_name(dynamic_type)
+    }
+
+    pub fn cylinder_or_cone_radius(&self) -> Option<f64> {
+        let adaptor = ffi::b_rep_adaptor::BRepAdaptor_Surface_ctor(&self.inner, true);
+
+        if let Ok(cylinder) = ffi::b_rep_adaptor::BRepAdaptor_Surface_cylinder(&adaptor) {
+            return Some(ffi::gp::gp_Cylinder_radius(&cylinder));
+        }
+        if let Ok(cone) = ffi::b_rep_adaptor::BRepAdaptor_Surface_cone(&adaptor) {
+            return Some(ffi::gp::gp_Cone_radius(&cone));
+        }
+        None
+    }
+
+    pub fn cylinder_or_cone_axis(&self) -> Option<(DVec3, DVec3)> {
+        let adaptor = ffi::b_rep_adaptor::BRepAdaptor_Surface_ctor(&self.inner, true);
+
+        if let Ok(cylinder) = ffi::b_rep_adaptor::BRepAdaptor_Surface_cylinder(&adaptor) {
+            let location = ffi::gp::gp_Cylinder_location(&cylinder);
+            let direction = ffi::gp::gp_Cylinder_direction(&cylinder);
+            return Some((
+                dvec3(location.X(), location.Y(), location.Z()),
+                dvec3(direction.X(), direction.Y(), direction.Z()),
+            ));
+        }
+        if let Ok(cone) = ffi::b_rep_adaptor::BRepAdaptor_Surface_cone(&adaptor) {
+            let location = ffi::gp::gp_Cone_location(&cone);
+            let direction = ffi::gp::gp_Cone_direction(&cone);
+            return Some((
+                dvec3(location.X(), location.Y(), location.Z()),
+                dvec3(direction.X(), direction.Y(), direction.Z()),
+            ));
+        }
+        None
+    }
+
+    pub fn sphere_center(&self) -> Option<DVec3> {
+        let adaptor = ffi::b_rep_adaptor::BRepAdaptor_Surface_ctor(&self.inner, true);
+        if let Ok(sphere) = ffi::b_rep_adaptor::BRepAdaptor_Surface_sphere(&adaptor) {
+            let location = ffi::gp::gp_Sphere_location(&sphere);
+            return Some(dvec3(location.X(), location.Y(), location.Z()));
+        }
+        None
+    }
+
+    pub fn sphere_radius(&self) -> Option<f64> {
+        let adaptor = ffi::b_rep_adaptor::BRepAdaptor_Surface_ctor(&self.inner, true);
+        if let Ok(sphere) = ffi::b_rep_adaptor::BRepAdaptor_Surface_sphere(&adaptor) {
+            return Some(ffi::gp::gp_Sphere_radius(&sphere));
+        }
+        None
     }
 
     /// Fillets the face edges by a given radius at each vertex
@@ -462,8 +543,12 @@ impl CompoundFace {
         Shape::from_shape(extruded_shape)
     }
 
-    #[must_use]
-    pub fn revolve(&self, origin: DVec3, axis: DVec3, angle: Option<Angle>) -> Shape {
+    pub fn try_revolve(
+        &self,
+        origin: DVec3,
+        axis: DVec3,
+        angle: Option<Angle>,
+    ) -> Result<Shape, crate::Error> {
         let revol_axis = make_axis_1(origin, axis);
 
         let angle = angle.map(Angle::radians).unwrap_or(std::f64::consts::PI * 2.0);
@@ -471,11 +556,24 @@ impl CompoundFace {
 
         let inner_shape = ffi::topo_ds::cast_compound_to_shape(&self.inner);
 
-        let mut make_solid =
-            ffi::b_rep_prim_api::BRepPrimAPI_MakeRevol_new(inner_shape, &revol_axis, angle, copy);
-        let revolved_shape = make_solid.pin_mut().Shape();
+        let mut make_solid = ffi::b_rep_prim_api::BRepPrimAPI_MakeRevol_ctor_checked(
+            inner_shape,
+            &revol_axis,
+            angle,
+            copy,
+        )
+        .map_err(|e| crate::Error::RevolveFailed(e.to_string()))?;
+        let revolved_shape =
+            ffi::b_rep_prim_api::BRepPrimAPI_MakeRevol_shape_checked(make_solid.pin_mut())
+                .map_err(|e| crate::Error::RevolveFailed(e.to_string()))?;
 
-        Shape::from_shape(revolved_shape)
+        Ok(Shape::from_shape(revolved_shape))
+    }
+
+    #[must_use]
+    pub fn revolve(&self, origin: DVec3, axis: DVec3, angle: Option<Angle>) -> Shape {
+        self.try_revolve(origin, axis, angle)
+            .expect("CompoundFace::revolve failed (use try_revolve for safe error handling)")
     }
 
     #[must_use]

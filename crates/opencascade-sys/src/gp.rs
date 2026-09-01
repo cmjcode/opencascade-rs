@@ -53,6 +53,11 @@ mod inner {
         type gp_Ax2;
         #[cxx_name = "construct_unique"]
         pub fn gp_Ax2_new(origin: &gp_Pnt, main_dir: &gp_Dir) -> UniquePtr<gp_Ax2>;
+        pub fn gp_Ax2_new_with_x_dir(
+            origin: &gp_Pnt,
+            main_dir: &gp_Dir,
+            x_dir: &gp_Dir,
+        ) -> UniquePtr<gp_Ax2>;
 
         type gp_Ax3;
         #[cxx_name = "construct_unique"]
@@ -91,5 +96,33 @@ mod inner {
         pub fn new_gp_GTrsf() -> UniquePtr<gp_GTrsf>;
         pub fn SetValue(self: Pin<&mut gp_GTrsf>, the_row: i32, the_col: i32, the_value: f64);
         pub fn Value(self: &gp_GTrsf, the_row: i32, the_col: i32) -> f64;
+
+        type gp_Pln;
+        pub fn gp_Pln_ctor_point_and_dir(point: &gp_Pnt, dir: &gp_Dir) -> UniquePtr<gp_Pln>;
+
+        type gp_Elips;
+        pub fn gp_Elips_ctor(
+            axis: &gp_Ax2,
+            major_radius: f64,
+            minor_radius: f64,
+        ) -> UniquePtr<gp_Elips>;
+
+        type gp_Cylinder;
+        pub fn gp_Cylinder_location(cylinder: &gp_Cylinder) -> UniquePtr<gp_Pnt>;
+        pub fn gp_Cylinder_direction(cylinder: &gp_Cylinder) -> UniquePtr<gp_Dir>;
+        pub fn gp_Cylinder_radius(cylinder: &gp_Cylinder) -> f64;
+
+        type gp_Cone;
+        pub fn gp_Cone_location(cone: &gp_Cone) -> UniquePtr<gp_Pnt>;
+        pub fn gp_Cone_direction(cone: &gp_Cone) -> UniquePtr<gp_Dir>;
+        pub fn gp_Cone_radius(cone: &gp_Cone) -> f64;
+        pub fn gp_Cone_semi_angle(cone: &gp_Cone) -> f64;
+        type gp_Sphere;
+        pub fn gp_Sphere_location(sphere: &gp_Sphere) -> UniquePtr<gp_Pnt>;
+        pub fn gp_Sphere_radius(sphere: &gp_Sphere) -> f64;
     }
+
+    impl UniquePtr<gp_Cylinder> {}
+    impl UniquePtr<gp_Cone> {}
+    impl UniquePtr<gp_Sphere> {}
 }

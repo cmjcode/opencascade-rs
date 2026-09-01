@@ -1,7 +1,14 @@
 #pragma once
 #include "rust/cxx.h"
 #include <NCollection_List.hxx>
+#include <Standard_Failure.hxx>
 #include <memory>
+
+[[noreturn]] inline void rethrow_standard_failure_as_runtime_error(const Standard_Failure &failure,
+                                                                    const char *fallback_message) {
+  const char *message = failure.GetMessageString();
+  throw std::runtime_error((message != nullptr && message[0] != '\0') ? message : fallback_message);
+}
 
 // Generic template constructor
 template <typename T, typename... Args> std::unique_ptr<T> construct_unique(Args... args) {

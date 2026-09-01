@@ -1,5 +1,6 @@
 use thiserror::Error;
 
+pub mod adhoc;
 pub mod angle;
 pub mod bounding_box;
 pub mod kicad;
@@ -15,6 +16,8 @@ mod make_pipe_shell;
 pub enum Error {
     #[error("failed to write STL file")]
     StlWriteFailed,
+    #[error("failed to read STL file")]
+    StlReadFailed,
     #[error("failed to read STEP file")]
     StepReadFailed,
     #[error("failed to read IGES file")]
@@ -39,4 +42,20 @@ pub enum Error {
     UntriangulatedFace,
     #[error("at least 2 points are required for creating a wire")]
     NotEnoughPoints,
+    #[error("BRepOffset_MakeOffset gagal: {0}")]
+    OffsetOnFaceFailed(String),
+    #[error("BRepFilletAPI_MakeFillet/MakeChamfer gagal: {0}")]
+    FilletFailed(String),
+    #[error("BRepAlgoAPI_Fuse/Cut/Common gagal: {0}")]
+    BooleanOpFailed(String),
+    #[error("BRepPrimAPI_MakeRevol gagal: {0}")]
+    RevolveFailed(String),
+    #[error("BRepOffsetAPI_MakeThickSolid gagal: {0}")]
+    HollowFailed(String),
+    #[error("BRepOffsetAPI_MakePipe gagal: {0}")]
+    PipeFailed(String),
+    #[error("BRepOffsetAPI_DraftAngle gagal: {0}")]
+    DraftAngleFailed(String),
+    #[error("BRepAlgoAPI_Splitter gagal: {0}")]
+    SplitFailed(String),
 }

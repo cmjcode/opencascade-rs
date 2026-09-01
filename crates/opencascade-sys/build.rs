@@ -108,6 +108,7 @@ fn main() {
     build
         .cpp(true)
         .flag_if_supported("-std=c++11")
+        .flag_if_supported("-Wno-deprecated-declarations")
         .define("_USE_MATH_DEFINES", "TRUE")
         .include(occt_config.include_dir)
         .include("include")

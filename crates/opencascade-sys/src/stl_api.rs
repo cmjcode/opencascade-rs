@@ -15,5 +15,9 @@ mod inner {
             shape: &TopoDS_Shape,
             filename: String,
         ) -> bool;
+        fn read_stl(
+            shape: Pin<&mut TopoDS_Shape>,
+            filename: String,
+        ) -> bool;
     }
 }

@@ -22,3 +22,19 @@ BRepFilletAPI_MakeFillet2d_add_chamfer_angle(BRepFilletAPI_MakeFillet2d &make_fi
                                              const Standard_Real angle) {
   return std::unique_ptr<TopoDS_Edge>(new TopoDS_Edge(make_fillet.AddChamfer(edge, vertex, dist, angle)));
 }
+
+inline const TopoDS_Shape &BRepFilletAPI_MakeFillet_shape_checked(BRepFilletAPI_MakeFillet &make_fillet) {
+  try {
+    return make_fillet.Shape();
+  } catch (const Standard_Failure &failure) {
+    rethrow_standard_failure_as_runtime_error(failure, "BRepFilletAPI_MakeFillet::Shape() failed: not done");
+  }
+}
+
+inline const TopoDS_Shape &BRepFilletAPI_MakeChamfer_shape_checked(BRepFilletAPI_MakeChamfer &make_chamfer) {
+  try {
+    return make_chamfer.Shape();
+  } catch (const Standard_Failure &failure) {
+    rethrow_standard_failure_as_runtime_error(failure, "BRepFilletAPI_MakeChamfer::Shape() failed: not done");
+  }
+}

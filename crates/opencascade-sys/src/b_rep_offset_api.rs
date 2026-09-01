@@ -20,8 +20,42 @@ mod inner {
         type TopTools_ListOfShape = crate::top_tools::TopTools_ListOfShape;
         type Message_ProgressRange = crate::message::Message_ProgressRange;
         type Handle_Law_Function = crate::law::Handle_Law_Function;
+        type gp_Pnt = crate::gp::gp_Pnt;
+        type gp_Dir = crate::gp::gp_Dir;
+        type gp_Pln = crate::gp::gp_Pln;
 
         type BRepOffset_Mode;
+
+        type BRepOffset_MakeOffset;
+        pub fn BRepOffset_MakeOffset_ctor() -> UniquePtr<BRepOffset_MakeOffset>;
+        #[allow(clippy::too_many_arguments)]
+        pub fn BRepOffset_MakeOffset_Initialize(
+            make_offset: Pin<&mut BRepOffset_MakeOffset>,
+            shape: &TopoDS_Shape,
+            offset: f64,
+            tolerance: f64,
+            mode: BRepOffset_Mode,
+            intersection: bool,
+            self_inter: bool,
+            join: GeomAbs_JoinType,
+            thickening: bool,
+            remove_int_edges: bool,
+        ) -> Result<()>;
+        pub fn BRepOffset_MakeOffset_AddFace(
+            make_offset: Pin<&mut BRepOffset_MakeOffset>,
+            face: &TopoDS_Face,
+        ) -> Result<()>;
+        pub fn BRepOffset_MakeOffset_SetOffsetOnFace(
+            make_offset: Pin<&mut BRepOffset_MakeOffset>,
+            face: &TopoDS_Face,
+            offset: f64,
+        ) -> Result<()>;
+        pub fn BRepOffset_MakeOffset_MakeOffsetShape(
+            make_offset: Pin<&mut BRepOffset_MakeOffset>,
+        ) -> Result<()>;
+        pub fn BRepOffset_MakeOffset_Shape(
+            make_offset: &BRepOffset_MakeOffset,
+        ) -> Result<&TopoDS_Shape>;
 
         type BRepOffsetAPI_MakeOffset;
         #[cxx_name = "construct_unique"]
@@ -57,6 +91,9 @@ mod inner {
             progress: &Message_ProgressRange,
         );
         pub fn Shape(self: Pin<&mut BRepOffsetAPI_MakeThickSolid>) -> &TopoDS_Shape;
+        pub fn BRepOffsetAPI_MakeThickSolid_shape_checked(
+            make_thick_solid: Pin<&mut BRepOffsetAPI_MakeThickSolid>,
+        ) -> Result<&TopoDS_Shape>;
         pub fn Build(
             self: Pin<&mut BRepOffsetAPI_MakeThickSolid>,
             progress: &Message_ProgressRange,
@@ -69,7 +106,14 @@ mod inner {
             spine: &TopoDS_Wire,
             profile: &TopoDS_Shape,
         ) -> UniquePtr<BRepOffsetAPI_MakePipe>;
+        pub fn BRepOffsetAPI_MakePipe_ctor_checked(
+            spine: &TopoDS_Wire,
+            profile: &TopoDS_Shape,
+        ) -> Result<UniquePtr<BRepOffsetAPI_MakePipe>>;
         pub fn Shape(self: Pin<&mut BRepOffsetAPI_MakePipe>) -> &TopoDS_Shape;
+        pub fn BRepOffsetAPI_MakePipe_shape_checked(
+            make_pipe: Pin<&mut BRepOffsetAPI_MakePipe>,
+        ) -> Result<&TopoDS_Shape>;
 
         type BRepOffsetAPI_MakePipeShell;
         #[cxx_name = "construct_unique"]
@@ -104,5 +148,24 @@ mod inner {
         pub fn Shape(self: Pin<&mut BRepOffsetAPI_ThruSections>) -> &TopoDS_Shape;
         pub fn Build(self: Pin<&mut BRepOffsetAPI_ThruSections>, progress: &Message_ProgressRange);
         pub fn IsDone(self: &BRepOffsetAPI_ThruSections) -> bool;
+
+        type BRepOffsetAPI_DraftAngle;
+        pub fn BRepOffsetAPI_DraftAngle_ctor(
+            shape: &TopoDS_Shape,
+        ) -> Result<UniquePtr<BRepOffsetAPI_DraftAngle>>;
+        pub fn BRepOffsetAPI_DraftAngle_Add(
+            draft: Pin<&mut BRepOffsetAPI_DraftAngle>,
+            face: &TopoDS_Face,
+            pull_dir: &gp_Dir,
+            angle_rad: f64,
+            neutral_plane: &gp_Pln,
+        ) -> Result<()>;
+        pub fn BRepOffsetAPI_DraftAngle_Build(
+            draft: Pin<&mut BRepOffsetAPI_DraftAngle>,
+        ) -> Result<()>;
+        pub fn BRepOffsetAPI_DraftAngle_IsDone(draft: &BRepOffsetAPI_DraftAngle) -> bool;
+        pub fn BRepOffsetAPI_DraftAngle_shape_checked(
+            draft: Pin<&mut BRepOffsetAPI_DraftAngle>,
+        ) -> Result<&TopoDS_Shape>;
     }
 }
