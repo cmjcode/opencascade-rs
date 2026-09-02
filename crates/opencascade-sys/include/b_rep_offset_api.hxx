@@ -139,3 +139,12 @@ inline const TopoDS_Shape &BRepOffsetAPI_DraftAngle_shape_checked(BRepOffsetAPI_
     rethrow_standard_failure_as_runtime_error(failure, "BRepOffsetAPI_DraftAngle::Shape() gagal: not done");
   }
 }
+
+inline void BRepOffsetAPI_MakePipeShell_SetLaw(BRepOffsetAPI_MakePipeShell &shell,
+                                              const TopoDS_Shape &profile,
+                                              const Handle_Law_Function &law,
+                                              bool with_contact,
+                                              bool with_correction) {
+  Handle(Law_Function) l = law;
+  shell.SetLaw(profile, l, with_contact, with_correction);
+}

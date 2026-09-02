@@ -14,7 +14,19 @@ mod inner {
         pub fn BuildCurves3d(shape: &TopoDS_Shape) -> bool;
 
         type BRepLib_ToolTriangulatedShape;
-        #[Self = "BRepLib_ToolTriangulatedShape"]
-        pub fn ComputeNormals(face: &TopoDS_Face, triangulation: &Handle_Poly_Triangulation);
+        pub fn BRepLib_ToolTriangulatedShape_ComputeNormals(
+            face: &TopoDS_Face,
+            triangulation: &Handle_Poly_Triangulation,
+        );
+    }
+}
+
+#[allow(non_snake_case)]
+impl BRepLib_ToolTriangulatedShape {
+    pub fn ComputeNormals(
+        face: &TopoDS_Face,
+        triangulation: &Handle_Poly_Triangulation,
+    ) {
+        BRepLib_ToolTriangulatedShape_ComputeNormals(face, triangulation);
     }
 }

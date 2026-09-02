@@ -127,8 +127,8 @@ mod inner {
             with_contact: bool,
             with_correction: bool,
         );
-        pub fn SetLaw(
-            self: Pin<&mut BRepOffsetAPI_MakePipeShell>,
+        pub fn BRepOffsetAPI_MakePipeShell_SetLaw(
+            shell: Pin<&mut BRepOffsetAPI_MakePipeShell>,
             profile: &TopoDS_Shape,
             law: &Handle_Law_Function,
             with_contact: bool,
@@ -167,5 +167,18 @@ mod inner {
         pub fn BRepOffsetAPI_DraftAngle_shape_checked(
             draft: Pin<&mut BRepOffsetAPI_DraftAngle>,
         ) -> Result<&TopoDS_Shape>;
+    }
+}
+
+#[allow(non_snake_case)]
+impl BRepOffsetAPI_MakePipeShell {
+    pub fn SetLaw(
+        self: std::pin::Pin<&mut Self>,
+        profile: &TopoDS_Shape,
+        law: &Handle_Law_Function,
+        with_contact: bool,
+        with_correction: bool,
+    ) {
+        BRepOffsetAPI_MakePipeShell_SetLaw(self, profile, law, with_contact, with_correction);
     }
 }
