@@ -174,7 +174,7 @@ impl Edge {
 
     pub fn approximation_segments(&self) -> ApproximationSegmentIterator {
         let adaptor_curve = ffi::b_rep_adaptor::BRepAdaptor_Curve_new(&self.inner);
-        let approximator = ffi::gc_pnts::TangentialDeflection_new(&adaptor_curve, 0.1, 0.1);
+        let approximator = ffi::gc_pnts::TangentialDeflection_new(&adaptor_curve, 0.05, 0.02);
 
         ApproximationSegmentIterator { count: 1, approximator }
     }

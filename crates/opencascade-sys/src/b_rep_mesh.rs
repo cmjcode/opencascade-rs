@@ -13,6 +13,14 @@ mod inner {
             shape: &TopoDS_Shape,
             deflection: f64,
         ) -> UniquePtr<BRepMesh_IncrementalMesh>;
+        #[cxx_name = "construct_unique"]
+        fn IncrementalMesh_new_with_angular(
+            shape: &TopoDS_Shape,
+            lin_deflection: f64,
+            is_relative: bool,
+            ang_deflection: f64,
+            in_parallel: bool,
+        ) -> UniquePtr<BRepMesh_IncrementalMesh>;
         fn Shape(self: &BRepMesh_IncrementalMesh) -> &TopoDS_Shape;
         fn IsDone(self: &BRepMesh_IncrementalMesh) -> bool;
     }

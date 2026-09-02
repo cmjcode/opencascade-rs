@@ -20,7 +20,21 @@ pub struct Mesher {
 
 impl Mesher {
     pub fn try_new(shape: &Shape, triangulation_tolerance: f64) -> Result<Self, Error> {
-        let inner = ffi::b_rep_mesh::IncrementalMesh_new(&shape.inner, triangulation_tolerance);
+        Self::try_new_with_angular(shape, triangulation_tolerance, 0.10)
+    }
+
+    pub fn try_new_with_angular(
+        shape: &Shape,
+        triangulation_tolerance: f64,
+        angular_deflection: f64,
+    ) -> Result<Self, Error> {
+        let inner = ffi::b_rep_mesh::IncrementalMesh_new_with_angular(
+            &shape.inner,
+            triangulation_tolerance,
+            false,
+            angular_deflection,
+            false,
+        );
 
         if inner.IsDone() {
             Ok(Self { inner })
@@ -49,9 +63,11 @@ impl Mesher {
             let index_offset = vertices.len();
             let face_point_count = triangulation.NbNodes();
 
+            let trsf = ffi::top_loc::TopLoc_Location_Transformation(&location);
+
             for i in 1..=face_point_count {
                 let mut point = ffi::poly::Poly_Triangulation_Node(triangulation, i);
-                point.pin_mut().Transform(&ffi::top_loc::TopLoc_Location_Transformation(&location));
+                point.pin_mut().Transform(&trsf);
                 vertices.push(dvec3(point.X(), point.Y(), point.Z()));
             }
 
@@ -84,18 +100,20 @@ impl Mesher {
                 }
             }
 
-            // Add in the normals.
-            // TODO(bschwind) - Use `location` to transform the normals.
-            let normal_array = ffi::t_col_gp::TColgp_Array1OfDir_new(0, face_point_count);
-
+            // Compute per-vertex normals from the triangulation surface geometry.
+            // ComputeNormals populates the normal array stored inside `triangulation`.
             ffi::b_rep_lib::BRepLib_ToolTriangulatedShape::ComputeNormals(
                 &face.inner,
                 &triangulation_handle,
             );
 
-            // TODO(bschwind) - Why do we start at 1 here?
-            for i in 1..(normal_array.Length() as usize) {
-                let normal = ffi::poly::Poly_Triangulation_Normal(triangulation, i as i32);
+            // CRITICAL: loop range must be `1..=face_point_count` (inclusive) to match
+            // the vertex loop above exactly. Using `1..(array.Length())` was off-by-one:
+            // it produced 1..face_point_count (exclusive), missing the last normal per
+            // face and causing every normal after index 0 to map to the wrong vertex.
+            for i in 1..=face_point_count {
+                let mut normal = ffi::poly::Poly_Triangulation_Normal(triangulation, i);
+                normal.pin_mut().Transform(&trsf);
                 normals.push(dvec3(normal.X(), normal.Y(), normal.Z()));
             }
 

@@ -883,12 +883,12 @@ impl Shape {
         } else {
             (bb.max() - bb.min()).length().max(1.0)
         };
-        let tol = (diag * 0.001).clamp(0.05, 0.5);
+        let tol = (diag * 0.0003).clamp(0.005, 0.05);
         self.mesh_with_tolerance(tol)
     }
 
     pub fn mesh_with_tolerance(&self, triangulation_tolerance: f64) -> Result<Mesh, Error> {
-        let mesher = Mesher::try_new(self, triangulation_tolerance)?;
+        let mesher = Mesher::try_new_with_angular(self, triangulation_tolerance, 0.10)?;
         mesher.mesh()
     }
 

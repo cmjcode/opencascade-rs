@@ -87,7 +87,12 @@ template <typename T> std::unique_ptr<std::vector<T>> list_to_vector(const NColl
   return std::unique_ptr<std::vector<T>>(new std::vector<T>(list.begin(), list.end()));
 }
 
-template <typename HandleT> inline const auto &handle_try_deref(const HandleT &handle) {
+#include <type_traits>
+#include <utility>
+
+template <typename HandleT>
+inline const typename std::remove_reference<decltype(*std::declval<HandleT>())>::type &
+handle_try_deref(const HandleT &handle) {
   if (handle.IsNull()) {
     throw std::runtime_error("null handle dereference");
   }
