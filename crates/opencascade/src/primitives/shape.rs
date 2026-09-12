@@ -861,6 +861,36 @@ impl Shape {
         self.inner = ffi::topo_ds::TopoDS_Shape_to_owned(transformed_shape);
     }
 
+    /// Luas permukaan total (`BRepGProp::SurfaceProperties`).
+    pub fn surface_area(&self) -> f64 {
+        let mut props = ffi::g_prop::GProps_new();
+        ffi::b_rep_g_prop::BRepGProp::SurfaceProperties(&self.inner, props.pin_mut(), false, false);
+        props.Mass()
+    }
+
+    /// Apakah shape ini valid secara topologi & geometri
+    /// (`BRepCheck_Analyzer`).
+    pub fn is_valid(&self) -> bool {
+        let geom_controls = true;
+        ffi::b_rep_check::BRepCheck_Analyzer_ctor(&self.inner, geom_controls).is_valid()
+    }
+
+    /// Coba perbaiki shape yang rusak ringan (`ShapeFix_Shape`).
+    /// Mengembalikan `None` bila proses perbaikan itu sendiri gagal;
+    /// hasil yang dikembalikan TETAP harus diperiksa dengan `is_valid`.
+    pub fn healed(&self) -> Option<Self> {
+        let mut fixer = ffi::shape_fix::ShapeFix_Shape_ctor(&self.inner);
+        if !ffi::shape_fix::ShapeFix_Shape_perform(fixer.pin_mut()) {
+            return None;
+        }
+        let inner = ffi::shape_fix::ShapeFix_Shape_result(&fixer);
+        if inner.is_null() {
+            None
+        } else {
+            Some(Self { inner })
+        }
+    }
+
     pub fn volume(&self) -> f64 {
         let mut props = ffi::g_prop::GProps_new();
         let only_closed = false;
