@@ -868,6 +868,51 @@ impl Shape {
         props.Mass()
     }
 
+    /// Hidden Line Removal EKSAK terhadap shape ini.
+    ///
+    /// `view_dir` adalah arah pandang (mata -> objek) dan `up` menentukan
+    /// orientasi vertikal hasil proyeksi; keduanya tidak boleh sejajar.
+    /// Mengembalikan empat compound rusuk dalam koordinat proyektor (bidang
+    /// gambar = XY): (tampak tajam, tampak siluet, tersembunyi tajam,
+    /// tersembunyi siluet).
+    ///
+    /// `None` bila HLR gagal — geometri patologis bisa membuat OCCT
+    /// melempar, dan itu tidak boleh menjatuhkan aplikasi.
+    pub fn hidden_line_removal(
+        &self,
+        view_dir: DVec3,
+        up: DVec3,
+    ) -> Option<(Shape, Shape, Shape, Shape)> {
+        let dir = view_dir.normalize_or_zero();
+        let up_n = up.normalize_or_zero();
+        if dir.length_squared() < 0.5 || up_n.length_squared() < 0.5 {
+            return None;
+        }
+        // `gp_Ax2` menolak sumbu X yang sejajar normalnya; disaring di sini
+        // supaya kegagalannya jadi `None` yang jelas, bukan lemparan C++.
+        if dir.cross(up_n).length() < 1e-6 {
+            return None;
+        }
+
+        let mut session = ffi::hlr_b_rep::DucadHlrSession_ctor();
+        session.pin_mut().add_shape(&self.inner);
+        if !session
+            .pin_mut()
+            .set_projection(dir.x, dir.y, dir.z, up_n.x, up_n.y, up_n.z)
+        {
+            return None;
+        }
+        if !session.pin_mut().compute() {
+            return None;
+        }
+        Some((
+            Self { inner: session.visible_sharp() },
+            Self { inner: session.visible_outline() },
+            Self { inner: session.hidden_sharp() },
+            Self { inner: session.hidden_outline() },
+        ))
+    }
+
     /// Apakah shape ini valid secara topologi & geometri
     /// (`BRepCheck_Analyzer`).
     pub fn is_valid(&self) -> bool {

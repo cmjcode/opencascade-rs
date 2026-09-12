@@ -24,6 +24,7 @@ pub mod geom2d;
 pub mod geom_abs;
 pub mod geom_api;
 pub mod gp;
+pub mod hlr_b_rep;
 pub mod if_select;
 pub mod iges_control;
 pub mod law;
