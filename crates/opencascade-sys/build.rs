@@ -41,8 +41,57 @@ fn main() {
     println!("cargo:rustc-link-search=native={}", occt_config.library_dir.to_str().unwrap());
 
     let lib_type = if occt_config.is_dynamic { "dylib" } else { "static" };
+    let is_apple = target.to_lowercase().contains("apple");
+
+    if !occt_config.is_dynamic && is_apple {
+        // Gabungkan semua file .o menggunakan libtool untuk menghindari pemotongan command-line ARG_MAX ar
+        if let Some(occt_root) = occt_config.library_dir.parent() {
+            let build_src = occt_root.join("build").join("src");
+            if build_src.exists() {
+                if let Ok(entries) = std::fs::read_dir(&build_src) {
+                    for entry in entries.flatten() {
+                        let pkg_name = entry.file_name().to_string_lossy().into_owned();
+                        if pkg_name.starts_with("TK") {
+                            let lib_file = occt_config.library_dir.join(format!("lib{pkg_name}.a"));
+                            let obj_dir = entry.path().join("CMakeFiles").join(format!("{pkg_name}.dir"));
+                            if obj_dir.exists() && lib_file.exists() {
+                                let mut obj_files = Vec::new();
+                                collect_object_files(&obj_dir, &mut obj_files);
+                                if !obj_files.is_empty() {
+                                    let _ = std::process::Command::new("libtool")
+                                        .arg("-static")
+                                        .arg("-o")
+                                        .arg(&lib_file)
+                                        .args(&obj_files)
+                                        .status();
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if !occt_config.is_dynamic {
+        if let Ok(entries) = std::fs::read_dir(&occt_config.library_dir) {
+            for entry in entries.flatten() {
+                let name = entry.file_name();
+                let name_str = name.to_string_lossy();
+                if name_str.starts_with("libTK") && name_str.ends_with(".a") {
+                    let lib_name = &name_str[3..name_str.len() - 2];
+                    println!("cargo:rustc-link-lib=static={lib_name}");
+                }
+            }
+        }
+    }
     for lib in OCCT_LIBS {
         println!("cargo:rustc-link-lib={lib_type}={lib}");
+    }
+
+
+    if is_apple {
+        println!("cargo:rustc-link-lib=c++");
     }
 
     if is_windows {
@@ -188,3 +237,17 @@ impl OcctConfig {
         }
     }
 }
+
+fn collect_object_files(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {
+    if let Ok(entries) = std::fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                collect_object_files(&path, out);
+            } else if path.extension().map_or(false, |ext| ext == "o") {
+                out.push(path);
+            }
+        }
+    }
+}
+
