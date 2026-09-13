@@ -861,6 +861,22 @@ impl Shape {
         self.inner = ffi::topo_ds::TopoDS_Shape_to_owned(transformed_shape);
     }
 
+    /// Jarak minimum EKSAK ke shape lain, beserta pasangan titik
+    /// terdekatnya. `None` bila perhitungannya gagal.
+    ///
+    /// Nol berarti keduanya bersentuhan atau saling menembus.
+    pub fn min_distance_to(&self, other: &Shape) -> Option<(f64, DVec3, DVec3)> {
+        let calc = ffi::b_rep_extrema::DucadDistance_ctor(&self.inner, &other.inner);
+        if !calc.is_done() {
+            return None;
+        }
+        Some((
+            calc.value(),
+            DVec3::new(calc.p1x(), calc.p1y(), calc.p1z()),
+            DVec3::new(calc.p2x(), calc.p2y(), calc.p2z()),
+        ))
+    }
+
     /// Luas permukaan total (`BRepGProp::SurfaceProperties`).
     pub fn surface_area(&self) -> f64 {
         let mut props = ffi::g_prop::GProps_new();
