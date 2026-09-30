@@ -356,6 +356,14 @@ impl Face {
         EdgeIterator { explorer }
     }
 
+    /// `true` bila kedua face merujuk entitas topologi yang sama (TShape,
+    /// lokasi, dan orientasi identik — `TopoDS_Shape::IsEqual`).
+    pub fn is_equal(&self, other: &Face) -> bool {
+        let a = ffi::topo_ds::cast_face_to_shape(&self.inner);
+        let b = ffi::topo_ds::cast_face_to_shape(&other.inner);
+        a.IsEqual(b)
+    }
+
     pub fn center_of_mass(&self) -> DVec3 {
         let mut props = ffi::g_prop::GProps_new();
 

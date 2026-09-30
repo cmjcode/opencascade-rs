@@ -12,6 +12,9 @@ pub struct Mesh {
     pub uvs: Vec<DVec2>,
     pub normals: Vec<DVec3>,
     pub indices: Vec<usize>,
+    /// Rentang `indices` milik tiap face, berurutan sama dengan
+    /// `Shape::faces()` (DUCAD: highlight face terpilih secara eksak).
+    pub face_ranges: Vec<std::ops::Range<usize>>,
 }
 
 pub struct Mesher {
@@ -48,6 +51,7 @@ impl Mesher {
         let mut uvs = vec![];
         let mut normals = vec![];
         let mut indices = vec![];
+        let mut face_ranges = vec![];
 
         let triangulated_shape = Shape::from_shape(self.inner.pin_mut().Shape());
 
@@ -61,6 +65,7 @@ impl Mesher {
                 .map_err(|_| Error::UntriangulatedFace)?;
 
             let index_offset = vertices.len();
+            let face_index_start = indices.len();
             let face_point_count = triangulation.NbNodes();
 
             let trsf = ffi::top_loc::TopLoc_Location_Transformation(&location);
@@ -130,8 +135,9 @@ impl Mesher {
                     indices.push(index_offset + triangle.Value(1) as usize - 1);
                 }
             }
+            face_ranges.push(face_index_start..indices.len());
         }
 
-        Ok(Mesh { vertices, uvs, normals, indices })
+        Ok(Mesh { vertices, uvs, normals, indices, face_ranges })
     }
 }
