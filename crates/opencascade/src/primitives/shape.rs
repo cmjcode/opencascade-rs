@@ -967,6 +967,35 @@ impl Shape {
         props.Mass()
     }
 
+    /// Properti volume (`BRepGProp::VolumeProperties`, densitas 1):
+    /// `(volume, pusat massa, tensor inersia terhadap origin)`.
+    ///
+    /// Tensor disusun dari `GProp_GProps::MomentOfInertia` pada enam sumbu
+    /// lewat origin (X, Y, Z dan tiga diagonal bidang) — untuk sumbu satuan
+    /// `n`, momennya `nᵀ·I·n`, sehingga elemen luar-diagonal didapat tanpa
+    /// binding `MatrixOfInertia`/`gp_Mat` baru.
+    pub fn volume_properties(&self) -> (f64, DVec3, [[f64; 3]; 3]) {
+        let mut props = ffi::g_prop::GProps_new();
+        ffi::b_rep_g_prop::BRepGProp::VolumeProperties(
+            &self.inner,
+            props.pin_mut(),
+            false,
+            false,
+            false,
+        );
+        let center = ffi::g_prop::GProp_GProps_CentreOfMass(&props);
+        let moment = |dir: DVec3| props.MomentOfInertia(&make_axis_1(DVec3::ZERO, dir));
+        let (ixx, iyy, izz) = (moment(DVec3::X), moment(DVec3::Y), moment(DVec3::Z));
+        let ixy = moment(dvec3(1.0, 1.0, 0.0)) - 0.5 * (ixx + iyy);
+        let ixz = moment(dvec3(1.0, 0.0, 1.0)) - 0.5 * (ixx + izz);
+        let iyz = moment(dvec3(0.0, 1.0, 1.0)) - 0.5 * (iyy + izz);
+        (
+            props.Mass(),
+            dvec3(center.X(), center.Y(), center.Z()),
+            [[ixx, ixy, ixz], [ixy, iyy, iyz], [ixz, iyz, izz]],
+        )
+    }
+
     pub fn mesh(&self) -> Result<Mesh, Error> {
         let bb = crate::bounding_box::aabb(self);
         let diag = if bb.is_void() {
