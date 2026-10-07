@@ -16,11 +16,14 @@ mod inner {
         /// ketahuan jauh di hilir: saat diekspor ke STEP, saat di-mesh untuk
         /// 3D print, atau tidak ketahuan sama sekali.
         type BRepCheck_Analyzer;
-        #[cxx_name = "construct_unique"]
+        /// Konstruktor OCCT melempar `Standard_NullObject` (dan exception
+        /// lain) untuk shape null/rusak; dideklarasikan `Result` supaya cxx
+        /// menangkapnya sebagai `cxx::Exception` — tanpa ini exception C++
+        /// lolos ke Rust dan proses `std::terminate` (SIGABRT).
         fn BRepCheck_Analyzer_ctor(
             shape: &TopoDS_Shape,
             geom_controls: bool,
-        ) -> UniquePtr<BRepCheck_Analyzer>;
+        ) -> Result<UniquePtr<BRepCheck_Analyzer>>;
         #[cxx_name = "IsValid"]
         fn is_valid(self: &BRepCheck_Analyzer) -> bool;
     }

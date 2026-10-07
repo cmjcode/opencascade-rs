@@ -931,15 +931,27 @@ impl Shape {
 
     /// Apakah shape ini valid secara topologi & geometri
     /// (`BRepCheck_Analyzer`).
+    /// Shape null, atau shape yang membuat `BRepCheck_Analyzer` sendiri
+    /// melempar exception (mis. `Standard_NullObject` dari hasil offset/
+    /// boolean yang rusak), dianggap TIDAK valid — bukan crash.
     pub fn is_valid(&self) -> bool {
+        if self.inner.IsNull() {
+            return false;
+        }
         let geom_controls = true;
-        ffi::b_rep_check::BRepCheck_Analyzer_ctor(&self.inner, geom_controls).is_valid()
+        match ffi::b_rep_check::BRepCheck_Analyzer_ctor(&self.inner, geom_controls) {
+            Ok(analyzer) => analyzer.is_valid(),
+            Err(_) => false,
+        }
     }
 
     /// Coba perbaiki shape yang rusak ringan (`ShapeFix_Shape`).
     /// Mengembalikan `None` bila proses perbaikan itu sendiri gagal;
     /// hasil yang dikembalikan TETAP harus diperiksa dengan `is_valid`.
     pub fn healed(&self) -> Option<Self> {
+        if self.inner.IsNull() {
+            return None;
+        }
         let mut fixer = ffi::shape_fix::ShapeFix_Shape_ctor(&self.inner);
         if !ffi::shape_fix::ShapeFix_Shape_perform(fixer.pin_mut()) {
             return None;

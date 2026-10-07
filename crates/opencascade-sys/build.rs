@@ -95,6 +95,13 @@ fn main() {
         println!("cargo:rustc-link-lib=c++");
     }
 
+    // Android (DUCAD): OCCT dibangun dengan ANDROID_STL=c++_shared (lihat
+    // crates/ducad-kernel/android/android-toolchain.cmake); libc++_shared.so
+    // disalin cargo-ndk ke jniLibs.
+    if target.to_lowercase().contains("android") {
+        println!("cargo:rustc-link-lib=dylib=c++_shared");
+    }
+
     if is_windows {
         println!("cargo:rustc-link-lib=dylib=user32");
     }
